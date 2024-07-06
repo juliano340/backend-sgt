@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Testes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        form {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        form label, form input, form button {
+            margin: 0 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
+        canvas {
+            width: 100% !important;
+            height: 400px !important;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Dashboard de Testes</h1>
+        <div>
+            <h2>Quantidade de Testes por Período</h2>
+            <form id="period-form">
+                <label for="start-date">Data de Início:</label>
+                <input type="date" id="start-date" name="start-date" required>
+                <label for="end-date">Data de Fim:</label>
+                <input type="date" id="end-date" name="end-date" required>
+                <button type="submit">Buscar</button>
+            </form>
+            <p id="period-result"></p>
+        </div>
+        <div>
+            <h2>Quantidade de Testes por Caso</h2>
+            <canvas id="case-chart"></canvas>
+        </div>
+        <div>
+            <h2>Quantidade de Testes Aprovados e Rejeitados</h2>
+            <canvas id="approval-chart"></canvas>
+        </div>
+    </div>
+    <script>
+        document.getElementById('period-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+
+            fetch(`http://localhost:3000/tests/count/by-period?start_date=${startDate}&end_date=${endDate}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('period-result').innerText = `Quantidade de Testes: ${data.count}`;
+                })
+                .catch(error => console.error('Erro ao buscar dados:', error));
+        });
+
+        function fetchCaseCounts() {
+            fetch('http://localhost:3000/tests/count/by-case')
+                .then(response => response.json())
+                .then(data => {
+                    const caseIds = data.counts.map(row => row.case_id);
+                    const caseCounts = data.counts.map(row => row.count);
+
+                    const ctx = document.getElementById('case-chart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: caseIds,
+                            datasets: [{
+                                label: 'Quantidade de Testes por Caso',
+                                data: caseCounts,
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                borderWidth: 1
+                            }]
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('Erro ao buscar dados:', error));
+        }
+
+        function fetchApprovalCounts() {
+            fetch('http://localhost:3000/tests/count/by-approval')
+                .then(response => response.json())
+                .then(data => {
+                    const ctx = document.getElementById('approval-chart').getContext('2d');
+                    new Chart(ctx, {
+                        type: 'pie',
+                        data: {
+                            labels: ['Aprovados', 'Rejeitados', 'Não Definidos'],
+                            datasets: [{
+                                label: 'Quantidade de Testes',
+                                data: [data.approved, data.rejected, data.undefined],
+                                backgroundColor: [
+                                    'rgba(75, 192, 192, 0.2)',
+                                    'rgba(255, 99, 132, 0.2)',
+                                    'rgba(255, 206, 86, 0.2)'
+                                ],
+                                borderColor: [
+                                    'rgba(75, 192, 192, 1)',
+                                    'rgba(255, 99, 132, 1)',
+                                    'rgba(255, 206, 86, 1)'
+                                ],
+                                borderWidth: 1
+                            }]
+                        }
+                    });
+                })
+                .catch(error => console.error('Erro ao buscar dados:', error));
+        }
+
+        // Fetch initial data
+        fetchCaseCounts();
+        fetchApprovalCounts();
+    </script>
+</body>
+</html>
