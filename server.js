@@ -10,7 +10,7 @@ const dbPath = path.resolve(__dirname, 'mydatabase.db');
 // Cria um novo banco de dados ou abre o existente
 const db = new sqlite3.Database(dbPath);
 
-app.use(cors());
+app.use(cors()); // Adiciona o middleware CORS
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
