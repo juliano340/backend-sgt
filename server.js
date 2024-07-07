@@ -29,12 +29,12 @@ db.serialize(() => {
   `);
 
   // Verifica se a coluna 'approved' existe antes de tentar adicioná-la
-  db.get("PRAGMA table_info(tests)", (err, rows) => {
+  db.all("PRAGMA table_info(tests)", (err, rows) => {
     if (err) {
       console.error(err.message);
       return;
     }
-    const columnExists = rows.some(row => row.name === 'approved');
+    const columnExists = Array.isArray(rows) && rows.some(row => row.name === 'approved');
     if (!columnExists) {
       db.run("ALTER TABLE tests ADD COLUMN approved INTEGER", (err) => {
         if (err) {
