@@ -70,13 +70,13 @@ app.post('/users', (req, res) => {
 // Endpoint para registrar um novo teste
 app.post('/tests', (req, res) => {
   const { case_id, user_id } = req.body;
-  const timestamp = new Date().toISOString();
+  const timestamp = new Date().toISOString(); // Gera um timestamp com data e hora
   const approved = null; // Inicialmente nulo
   db.run("INSERT INTO tests (case_id, user_id, timestamp, approved) VALUES (?, ?, ?, ?)", [case_id, user_id, timestamp, approved], function(err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    res.json({ id: this.lastID });
+      if (err) {
+          return res.status(500).json({ error: err.message });
+      }
+      res.json({ id: this.lastID });
   });
 });
 
@@ -122,18 +122,21 @@ app.delete('/tests/:id', (req, res) => {
 
 // Endpoint para obter a quantidade de testes por período
 app.get('/tests/count/by-period', (req, res) => {
-    const { start_date, end_date } = req.query;
-    const query = `
-        SELECT COUNT(*) as count
-        FROM tests
-        WHERE timestamp BETWEEN ? AND ?
-    `;
-    db.get(query, [start_date, end_date], (err, row) => {
-        if (err) {
-            return res.status(500).json({ error: err.message });
-        }
-        res.json({ count: row.count });
-    });
+  const { start_date, end_date } = req.query;
+  const startDateTime = `${start_date}T00:00:00.000Z`;
+  const endDateTime = `${end_date}T23:59:59.999Z`;
+
+  const query = `
+      SELECT COUNT(*) as count
+      FROM tests
+      WHERE timestamp BETWEEN ? AND ?
+  `;
+  db.get(query, [startDateTime, endDateTime], (err, row) => {
+      if (err) {
+          return res.status(500).json({ error: err.message });
+      }
+      res.json({ count: row.count });
+  });
 });
 
 // Endpoint para obter a quantidade de testes por caso
@@ -171,6 +174,55 @@ app.get('/tests/count/by-approval', (req, res) => {
 // Endpoint para servir o arquivo HTML do dashboard
 app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+});
+
+// Endpoint para obter a quantidade de testes realizados pelos usuários por período (semana, quinzena, mês, hoje)
+app.get('/tests/count/by-user/:period', (req, res) => {
+  const period = req.params.period;
+  let query;
+
+  if (period === 'weekly') {
+      query = `
+          SELECT date(timestamp) as date, users.username, COUNT(*) as count
+          FROM tests
+          JOIN users ON tests.user_id = users.id
+          WHERE timestamp >= datetime('now', '-7 days')
+          GROUP BY date(timestamp), users.username
+      `;
+  } else if (period === 'fortnightly') {
+      query = `
+          SELECT date(timestamp) as date, users.username, COUNT(*) as count
+          FROM tests
+          JOIN users ON tests.user_id = users.id
+          WHERE timestamp >= datetime('now', '-15 days')
+          GROUP BY date(timestamp), users.username
+      `;
+  } else if (period === 'monthly') {
+      query = `
+          SELECT date(timestamp) as date, users.username, COUNT(*) as count
+          FROM tests
+          JOIN users ON tests.user_id = users.id
+          WHERE timestamp >= datetime('now', '-30 days')
+          GROUP BY date(timestamp), users.username
+      `;
+  } else if (period === 'today') {
+      query = `
+          SELECT date(timestamp) as date, users.username, COUNT(*) as count
+          FROM tests
+          JOIN users ON tests.user_id = users.id
+          WHERE date(timestamp) = date('now')
+          GROUP BY date(timestamp), users.username
+      `;
+  } else {
+      return res.status(400).json({ error: 'Invalid period' });
+  }
+
+  db.all(query, [], (err, rows) => {
+      if (err) {
+          return res.status(500).json({ error: err.message });
+      }
+      res.json({ counts: rows });
+  });
 });
 
 const PORT = process.env.PORT || 3000;

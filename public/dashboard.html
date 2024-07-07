@@ -47,6 +47,14 @@
             max-width: 600px;
             margin: 20px auto;
         }
+        .card {
+            background: #2e7fd5;
+            color: #fff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -62,7 +70,9 @@
                 <input type="date" id="end-date" name="end-date" required>
                 <button type="submit">Buscar</button>
             </form>
-            <p id="period-result"></p>
+            <div id="period-result" class="card" style="display:none;">
+                <h3>Quantidade de Testes: <span id="test-count"></span></h3>
+            </div>
         </div>
         <div>
             <h2>Quantidade de Testes por Caso</h2>
@@ -71,6 +81,17 @@
         <div>
             <h2>Quantidade de Testes Aprovados e Rejeitados</h2>
             <canvas id="approval-chart"></canvas>
+        </div>
+        <div>
+            <h2>Quantidade de Testes por Usuário</h2>
+            <label for="period-select">Selecione o Período:</label>
+            <select id="period-select">
+                <option value="today">Hoje</option>
+                <option value="weekly">Semanal</option>
+                <option value="fortnightly">Quinzenal</option>
+                <option value="monthly">Mensal</option>
+            </select>
+            <canvas id="user-chart"></canvas>
         </div>
     </div>
     <script>
@@ -82,7 +103,8 @@
             fetch(`http://localhost:3000/tests/count/by-period?start_date=${startDate}&end_date=${endDate}`)
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('period-result').innerText = `Quantidade de Testes: ${data.count}`;
+                    document.getElementById('test-count').innerText = data.count;
+                    document.getElementById('period-result').style.display = 'block';
                 })
                 .catch(error => console.error('Erro ao buscar dados:', error));
         });
@@ -149,9 +171,73 @@
                 .catch(error => console.error('Erro ao buscar dados:', error));
         }
 
+        let userChart;
+
+        function fetchUserCounts(period) {
+            const urlMap = {
+                today: 'http://localhost:3000/tests/count/by-user/today',
+                weekly: 'http://localhost:3000/tests/count/by-user/weekly',
+                fortnightly: 'http://localhost:3000/tests/count/by-user/fortnightly',
+                monthly: 'http://localhost:3000/tests/count/by-user/monthly'
+            };
+
+            fetch(urlMap[period])
+                .then(response => response.json())
+                .then(data => {
+                    const dates = [...new Set(data.counts.map(row => row.date))];
+                    const users = [...new Set(data.counts.map(row => row.username))];
+                    const datasets = users.map(user => {
+                        return {
+                            label: user,
+                            data: dates.map(date => {
+                                const found = data.counts.find(row => row.date === date && row.username === user);
+                                return found ? found.count : 0;
+                            }),
+                            fill: false,
+                            borderColor: getRandomColor(),
+                            tension: 0.1
+                        };
+                    });
+
+                    const ctx = document.getElementById('user-chart').getContext('2d');
+                    if (userChart) {
+                        userChart.destroy();
+                    }
+                    userChart = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: dates,
+                            datasets: datasets
+                        },
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('Erro ao buscar dados:', error));
+        }
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        document.getElementById('period-select').addEventListener('change', function (event) {
+            fetchUserCounts(event.target.value);
+        });
+
         // Fetch initial data
         fetchCaseCounts();
         fetchApprovalCounts();
+        fetchUserCounts('today');
     </script>
 </body>
 </html>
