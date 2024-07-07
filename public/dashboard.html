@@ -57,6 +57,9 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const API_URL = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'https://api.juliano340.com';
+    </script>
 </head>
 <body>
     <div class="container">
@@ -100,7 +103,7 @@
             const startDate = document.getElementById('start-date').value;
             const endDate = document.getElementById('end-date').value;
 
-            fetch(`http://localhost:3000/tests/count/by-period?start_date=${startDate}&end_date=${endDate}`)
+            fetch(`${API_URL}/tests/count/by-period?start_date=${startDate}&end_date=${endDate}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('test-count').innerText = data.count;
@@ -110,7 +113,7 @@
         });
 
         function fetchCaseCounts() {
-            fetch('http://localhost:3000/tests/count/by-case')
+            fetch(`${API_URL}/tests/count/by-case`)
                 .then(response => response.json())
                 .then(data => {
                     const caseIds = data.counts.map(row => row.case_id);
@@ -142,7 +145,7 @@
         }
 
         function fetchApprovalCounts() {
-            fetch('http://localhost:3000/tests/count/by-approval')
+            fetch(`${API_URL}/tests/count/by-approval`)
                 .then(response => response.json())
                 .then(data => {
                     const ctx = document.getElementById('approval-chart').getContext('2d');
@@ -175,10 +178,10 @@
 
         function fetchUserCounts(period) {
             const urlMap = {
-                today: 'http://localhost:3000/tests/count/by-user/today',
-                weekly: 'http://localhost:3000/tests/count/by-user/weekly',
-                fortnightly: 'http://localhost:3000/tests/count/by-user/fortnightly',
-                monthly: 'http://localhost:3000/tests/count/by-user/monthly'
+                today: `${API_URL}/tests/count/by-user/today`,
+                weekly: `${API_URL}/tests/count/by-user/weekly`,
+                fortnightly: `${API_URL}/tests/count/by-user/fortnightly`,
+                monthly: `${API_URL}/tests/count/by-user/monthly`
             };
 
             fetch(urlMap[period])
