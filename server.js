@@ -28,10 +28,19 @@ db.serialize(() => {
     )
   `);
 
-  // Atualiza a tabela tests para adicionar a coluna approved se ela não existir
-  db.run("ALTER TABLE tests ADD COLUMN approved INTEGER", (err) => {
-    if (err && !err.message.includes("duplicate column")) {
+  // Verifica se a coluna 'approved' existe antes de tentar adicioná-la
+  db.get("PRAGMA table_info(tests)", (err, rows) => {
+    if (err) {
       console.error(err.message);
+      return;
+    }
+    const columnExists = rows.some(row => row.name === 'approved');
+    if (!columnExists) {
+      db.run("ALTER TABLE tests ADD COLUMN approved INTEGER", (err) => {
+        if (err) {
+          console.error(err.message);
+        }
+      });
     }
   });
 });
@@ -163,7 +172,7 @@ app.get('/dashboard', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
