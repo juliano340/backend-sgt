@@ -10,6 +10,11 @@
             margin: 0;
             padding: 0;
             background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            min-height: 100vh;
         }
         .container {
             width: 90%;
@@ -22,6 +27,7 @@
         }
         h1, h2 {
             color: #333;
+            text-align: center;
         }
         form {
             display: flex;
@@ -41,11 +47,15 @@
             border: 1px solid #ddd;
             text-align: left;
         }
+        .chart-container {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
         canvas {
             width: 100% !important;
             height: 400px !important;
             max-width: 600px;
-            margin: 20px auto;
         }
         .card {
             background: #2e7fd5;
@@ -54,6 +64,12 @@
             margin: 20px 0;
             border-radius: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        .no-data {
+            text-align: center;
+            padding: 20px;
+            color: #777;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -79,11 +95,23 @@
         </div>
         <div>
             <h2>Quantidade de Testes por Caso</h2>
-            <canvas id="case-chart"></canvas>
+            <form id="case-period-form">
+                <label for="case-start-date">Data de Início:</label>
+                <input type="date" id="case-start-date" name="case-start-date" required>
+                <label for="case-end-date">Data de Fim:</label>
+                <input type="date" id="case-end-date" name="case-end-date" required>
+                <button type="submit">Filtrar</button>
+            </form>
+            <div id="no-case-data" class="no-data" style="display:none;">Nenhum dado encontrado para o intervalo de datas selecionado.</div>
+            <div class="chart-container">
+                <canvas id="case-chart"></canvas>
+            </div>
         </div>
         <div>
             <h2>Quantidade de Testes Aprovados e Rejeitados</h2>
-            <canvas id="approval-chart"></canvas>
+            <div class="chart-container">
+                <canvas id="approval-chart"></canvas>
+            </div>
         </div>
         <div>
             <h2>Quantidade de Testes por Usuário</h2>
@@ -91,13 +119,17 @@
             <select id="period-select">
                 <option value="today">Hoje</option>
                 <option value="weekly">Semanal</option>
-                <option value="fortnightly">Quinzenal</option>
+                <option value="fortnightly" selected>Quinzenal</option>
                 <option value="monthly">Mensal</option>
             </select>
-            <canvas id="user-chart"></canvas>
+            <div class="chart-container">
+                <canvas id="user-chart"></canvas>
+            </div>
         </div>
     </div>
     <script>
+        let caseChart;
+
         document.getElementById('period-form').addEventListener('submit', function (event) {
             event.preventDefault();
             const startDate = document.getElementById('start-date').value;
@@ -112,30 +144,92 @@
                 .catch(error => console.error('Erro ao buscar dados:', error));
         });
 
+        document.getElementById('case-period-form').addEventListener('submit', function (event) {
+            event.preventDefault();
+            fetchCaseCounts();
+        });
+
         function fetchCaseCounts() {
-            fetch(`${API_URL}/tests/count/by-case`)
+            const startDate = document.getElementById('case-start-date').value;
+            const endDate = document.getElementById('case-end-date').value;
+
+            console.log(`Fetching data with start_date: ${startDate} and end_date: ${endDate}`);
+
+            fetch(`${API_URL}/tests/count/by-case?start_date=${startDate}&end_date=${endDate}`)
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Data received:', data);
+                    const noDataElement = document.getElementById('no-case-data');
+                    if (data.counts.length === 0) {
+                        console.warn('No data found for the given date range.');
+                        noDataElement.style.display = 'block';
+                        if (caseChart) {
+                            caseChart.destroy();
+                        }
+                        return;
+                    }
+                    noDataElement.style.display = 'none';
+
                     const caseIds = data.counts.map(row => row.case_id);
-                    const caseCounts = data.counts.map(row => row.count);
+                    const approvedCounts = data.counts.map(row => row.approved_count);
+                    const rejectedCounts = data.counts.map(row => row.rejected_count);
+                    const undefinedCounts = data.counts.map(row => row.undefined_count);
+                    const developerNames = data.counts.map(row => row.developer_name);
 
                     const ctx = document.getElementById('case-chart').getContext('2d');
-                    new Chart(ctx, {
+                    if (caseChart) {
+                        caseChart.destroy();
+                    }
+                    caseChart = new Chart(ctx, {
                         type: 'bar',
                         data: {
                             labels: caseIds,
-                            datasets: [{
-                                label: 'Quantidade de Testes por Caso',
-                                data: caseCounts,
-                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                borderColor: 'rgba(75, 192, 192, 1)',
-                                borderWidth: 1
-                            }]
+                            datasets: [
+                                {
+                                    label: 'Não Definidos',
+                                    data: undefinedCounts,
+                                    backgroundColor: 'rgba(255, 206, 86, 0.6)',
+                                    borderColor: 'rgba(255, 206, 86, 1)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'Rejeitados',
+                                    data: rejectedCounts,
+                                    backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                                    borderColor: 'rgba(255, 99, 132, 1)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'Aprovados',
+                                    data: approvedCounts,
+                                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                                    borderColor: 'rgba(75, 192, 192, 1)',
+                                    borderWidth: 1
+                                }
+                            ]
                         },
                         options: {
                             scales: {
                                 y: {
-                                    beginAtZero: true
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    },
+                                    stacked: true
+                                },
+                                x: {
+                                    stacked: true
+                                }
+                            },
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const label = context.dataset.label || '';
+                                            const developerName = developerNames[context.dataIndex];
+                                            return `${label}: ${context.raw} (Desenvolvedor: ${developerName})`;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -168,6 +262,25 @@
                                 ],
                                 borderWidth: 1
                             }]
+                        },
+                        options: {
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        afterLabel: function(context) {
+                                            let label = '';
+                                            if (context.label === 'Aprovados') {
+                                                const topApprovedDevelopers = data.top_approved_developers.split(', ').map(dev => dev.replace(/, /g, '\n')).join('\n');
+                                                label = `\nTop 10:\n${topApprovedDevelopers}`;
+                                            } else if (context.label === 'Rejeitados') {
+                                                const topRejectedDevelopers = data.top_rejected_developers.split(', ').map(dev => dev.replace(/, /g, '\n')).join('\n');
+                                                label = `\nTop 10:\n${topRejectedDevelopers}`;
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     });
                 })
@@ -237,10 +350,31 @@
             fetchUserCounts(event.target.value);
         });
 
+        // Set default dates for the last 7 days for period-form
+        const periodEndDate = new Date().toISOString().split('T')[0];
+        const periodStartDate = new Date(new Date().setDate(new Date().getDate() - 7)).toISOString().split('T')[0];
+        document.getElementById('start-date').value = periodStartDate;
+        document.getElementById('end-date').value = periodEndDate;
+
+        // Fetch initial data for the last 7 days for period-form
+        fetch(`${API_URL}/tests/count/by-period?start_date=${periodStartDate}&end_date=${periodEndDate}`)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('test-count').innerText = data.count;
+                document.getElementById('period-result').style.display = 'block';
+            })
+            .catch(error => console.error('Erro ao buscar dados:', error));
+
+        // Set default dates for the last 30 days for case-period-form
+        const caseEndDate = new Date().toISOString().split('T')[0];
+        const caseStartDate = new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0];
+        document.getElementById('case-start-date').value = caseStartDate;
+        document.getElementById('case-end-date').value = caseEndDate;
+
         // Fetch initial data
         fetchCaseCounts();
         fetchApprovalCounts();
-        fetchUserCounts('today');
+        fetchUserCounts('fortnightly'); // Fetch initial data for fortnightly period by default
     </script>
 </body>
 </html>
