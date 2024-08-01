@@ -209,6 +209,8 @@
                             ]
                         },
                         options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
                             scales: {
                                 y: {
                                     beginAtZero: true,
@@ -239,53 +241,62 @@
         }
 
         function fetchApprovalCounts() {
-            fetch(`${API_URL}/tests/count/by-approval`)
-                .then(response => response.json())
-                .then(data => {
-                    const ctx = document.getElementById('approval-chart').getContext('2d');
-                    new Chart(ctx, {
-                        type: 'pie',
-                        data: {
-                            labels: ['Aprovados', 'Rejeitados', 'Não Definidos'],
-                            datasets: [{
-                                label: 'Quantidade de Testes',
-                                data: [data.approved, data.rejected, data.undefined],
-                                backgroundColor: [
-                                    'rgba(75, 192, 192, 0.2)',
-                                    'rgba(255, 99, 132, 0.2)',
-                                    'rgba(255, 206, 86, 0.2)'
-                                ],
-                                borderColor: [
-                                    'rgba(75, 192, 192, 1)',
-                                    'rgba(255, 99, 132, 1)',
-                                    'rgba(255, 206, 86, 1)'
-                                ],
-                                borderWidth: 1
-                            }]
-                        },
-                        options: {
-                            plugins: {
-                                tooltip: {
-                                    callbacks: {
-                                        afterLabel: function(context) {
-                                            let label = '';
-                                            if (context.label === 'Aprovados') {
-                                                const topApprovedDevelopers = data.top_approved_developers.split(', ').map(dev => dev.replace(/, /g, '\n')).join('\n');
-                                                label = `\nTop 10:\n${topApprovedDevelopers}`;
-                                            } else if (context.label === 'Rejeitados') {
-                                                const topRejectedDevelopers = data.top_rejected_developers.split(', ').map(dev => dev.replace(/, /g, '\n')).join('\n');
-                                                label = `\nTop 10:\n${topRejectedDevelopers}`;
-                                            }
-                                            return label;
-                                        }
+    fetch(`${API_URL}/tests/count/by-approval`)
+        .then(response => response.json())
+        .then(data => {
+            const totalTests = data.approved + data.rejected + data.undefined;
+
+            const ctx = document.getElementById('approval-chart').getContext('2d');
+            new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Aprovados', 'Rejeitados', 'Não Definidos'],
+                    datasets: [{
+                        label: 'Quantidade de Testes',
+                        data: [data.approved, data.rejected, data.undefined],
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.2)',
+                            'rgba(255, 99, 132, 0.2)',
+                            'rgba(255, 206, 86, 0.2)'
+                        ],
+                        borderColor: [
+                            'rgba(75, 192, 192, 1)',
+                            'rgba(255, 99, 132, 1)',
+                            'rgba(255, 206, 86, 1)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.raw || 0;
+                                    const percentage = ((value / totalTests) * 100).toFixed(2);
+                                    return `${label}: ${value} (${percentage}%)`;
+                                },
+                                afterLabel: function(context) {
+                                    let tooltipText = '';
+                                    if (context.label === 'Aprovados') {
+                                        const topApprovedDevelopers = data.top_approved_developers.split(', ').join('\n');
+                                        tooltipText = `\nTop 10:\n${topApprovedDevelopers}`;
+                                    } else if (context.label === 'Rejeitados') {
+                                        const topRejectedDevelopers = data.top_rejected_developers.split(', ').join('\n');
+                                        tooltipText = `\nTop 10:\n${topRejectedDevelopers}`;
                                     }
+                                    return tooltipText;
                                 }
                             }
                         }
-                    });
-                })
-                .catch(error => console.error('Erro ao buscar dados:', error));
-        }
+                    }
+                }
+            });
+        })
+        .catch(error => console.error('Erro ao buscar dados:', error));
+}
+
 
         let userChart;
 
@@ -326,6 +337,8 @@
                             datasets: datasets
                         },
                         options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
                             scales: {
                                 y: {
                                     beginAtZero: true

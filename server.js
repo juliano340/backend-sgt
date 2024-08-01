@@ -159,6 +159,7 @@ app.get('/tests/count/by-case', (req, res) => {
     FROM tests
     WHERE tests.timestamp BETWEEN ? AND ?
     GROUP BY tests.case_id, tests.developer_name
+    ORDER BY tests.timestamp ASC
   `;
 
   db.all(query, [formattedStartDate, formattedEndDate], (err, rows) => {
@@ -170,9 +171,6 @@ app.get('/tests/count/by-case', (req, res) => {
     res.json({ counts: rows });
   });
 });
-
-
-
 
 // Endpoint para obter a contagem de testes por status de aprovação e top 10 desenvolvedores
 app.get('/tests/count/by-approval', (req, res) => {
